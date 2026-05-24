@@ -1,0 +1,12 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+
+# Node / Docusaurus
+node_modules/
+site/build/
+site/.docusaurus/
+npm-debug.log*

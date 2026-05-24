@@ -1,0 +1,26 @@
+[project]
+name = "ap2-getting-started"
+version = "0.1.0"
+description = "Learn the Agent Payments Protocol (AP2) from first principles."
+requires-python = ">=3.11"
+dependencies = [
+    "ap2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.uv.sources]
+ap2 = { git = "https://github.com/google-agentic-commerce/ap2.git" }
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ap2_shared*"]
+
+[tool.pytest.ini_options]
+testpaths = ["ap2_shared", "lessons"]
+python_files = ["test_*.py"]
+addopts = "-q"
