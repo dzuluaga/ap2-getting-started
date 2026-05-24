@@ -15,7 +15,7 @@ An AP2 transaction is a small play with a fixed cast. Knowing who does what — 
 - The <Term id="merchant">Merchant</Term> owns the catalog, signs the cart, and ultimately fulfills the order. When you need to trust *what is being bought and for how much*, you trust the merchant's signature.
 - The <Term id="merchant-payment-processor">Merchant Payment Processor</Term> submits the transaction into the payment ecosystem for authorization on the merchant's behalf.
 - The <Term id="trusted-surface">Trusted Surface</Term> is a non-agentic UI — a screen the user actually trusts — where they review the real terms and give informed, signed consent. This is the one place a human's intent is captured, deliberately kept outside the agent.
-- The **Network / Issuer** runs the underlying payment rails, issues the credentials, and performs the final authorization, just as it does for card payments today.
+- The <Term id="network-issuer">Network / Issuer</Term> runs the underlying payment rails, issues the credentials, and performs the final authorization, just as it does for card payments today.
 
 These roles play out across two journeys. In the <Term id="human-present">Human-Present</Term> journey the user is available right now to approve the payment in the moment. In the <Term id="human-not-present">Human-Not-Present</Term> journey the user is *not* available at payment time, so they pre-authorize constraints up front and the agent acts later, within those limits, on their behalf.
 

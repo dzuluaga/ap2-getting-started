@@ -1,7 +1,7 @@
 ---
 slug: learning-ap2-from-first-principles
 title: Learning AP2 from first principles
-authors: []
+authors: [diego]
 tags: [ap2, agentic-commerce]
 date: 2026-05-24
 ---

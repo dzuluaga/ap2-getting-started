@@ -78,7 +78,7 @@ ap2-getting-started/
 ├── lessons/
 │   ├── _template/             # canonical lesson skeleton (README + code + test)
 │   ├── 00-why-agent-payments/ # concept lesson (tiny "trust gap" illustration)
-│   ├── 01-roles-and-flow/     # the six roles + two journeys, as runnable stubs
+│   ├── 01-roles-and-journeys/ # the six roles + two journeys, as runnable stubs
 │   └── 02-mandates/           # build Checkout+Payment mandate (plain signed JWT) → map to SDK
 │       ├── README.md
 │       ├── build_mandate.py

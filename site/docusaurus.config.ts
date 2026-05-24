@@ -11,7 +11,7 @@ const config: Config = {
   url: 'https://ap2-getting-started.vercel.app',
   baseUrl: '/',
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+  markdown: {hooks: {onBrokenMarkdownLinks: 'warn'}},
   i18n: {defaultLocale: 'en', locales: ['en']},
   presets: [
     [
