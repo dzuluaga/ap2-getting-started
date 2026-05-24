@@ -118,3 +118,60 @@ def test_sdk_payment_mandate_builds():
         sdk_payment.payment_mandate_contents.payment_details_total.amount.value
         == 49.99
     )
+
+
+def test_valid_payment_mandate_verifies():
+    merchant_priv, _ = generate_p256_keypair()
+    user_priv, user_pub = generate_p256_keypair()
+    checkout = build_mandate.build_checkout_mandate(
+        _sample_cart(), merchant_priv, "m-1"
+    )
+    payment = build_mandate.build_payment_mandate(checkout, user_priv, "u-1")
+    assert (
+        verify_mandate.verify_payment_mandate(payment, user_pub, checkout) is True
+    )
+
+
+def test_payment_mandate_wrong_user_key_fails():
+    merchant_priv, _ = generate_p256_keypair()
+    user_priv, _ = generate_p256_keypair()
+    _, attacker_pub = generate_p256_keypair()
+    checkout = build_mandate.build_checkout_mandate(
+        _sample_cart(), merchant_priv, "m-1"
+    )
+    payment = build_mandate.build_payment_mandate(checkout, user_priv, "u-1")
+    assert (
+        verify_mandate.verify_payment_mandate(payment, attacker_pub, checkout)
+        is False
+    )
+
+
+def test_tampered_payment_contents_fails():
+    merchant_priv, _ = generate_p256_keypair()
+    user_priv, user_pub = generate_p256_keypair()
+    checkout = build_mandate.build_checkout_mandate(
+        _sample_cart(), merchant_priv, "m-1"
+    )
+    payment = build_mandate.build_payment_mandate(checkout, user_priv, "u-1")
+    # Tamper the payment contents after signing → payment_hash no longer matches.
+    payment["payment_mandate_contents"]["merchant_agent"] = "Evil Store"
+    assert (
+        verify_mandate.verify_payment_mandate(payment, user_pub, checkout)
+        is False
+    )
+
+
+def test_payment_mandate_not_bound_to_other_checkout_fails():
+    merchant_priv, _ = generate_p256_keypair()
+    user_priv, user_pub = generate_p256_keypair()
+    checkout = build_mandate.build_checkout_mandate(
+        _sample_cart(), merchant_priv, "m-1"
+    )
+    payment = build_mandate.build_payment_mandate(checkout, user_priv, "u-1")
+    # A different checkout (unique JWT) breaks the binding even with same cart.
+    other = build_mandate.build_checkout_mandate(
+        _sample_cart(), merchant_priv, "m-1"
+    )
+    assert (
+        verify_mandate.verify_payment_mandate(payment, user_pub, other) is False
+    )
