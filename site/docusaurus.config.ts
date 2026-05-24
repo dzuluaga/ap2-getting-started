@@ -20,6 +20,8 @@ const config: Config = {
         docs: {
           routeBasePath: 'docs',
           sidebarPath: './sidebars.ts',
+          editUrl:
+            'https://github.com/dzuluaga/ap2-getting-started/tree/main/site/',
           remarkPlugins: [
             [
               codeImport,
@@ -30,7 +32,11 @@ const config: Config = {
             ],
           ],
         },
-        blog: {showReadingTime: true},
+        blog: {
+          showReadingTime: true,
+          editUrl:
+            'https://github.com/dzuluaga/ap2-getting-started/tree/main/site/',
+        },
         theme: {customCss: './src/css/custom.css'},
       } satisfies Preset.Options,
     ],
@@ -48,6 +54,11 @@ const config: Config = {
           label: 'AP2 spec',
           position: 'right',
         },
+        {
+          href: 'https://github.com/dzuluaga/ap2-getting-started',
+          label: 'GitHub',
+          position: 'right',
+        },
       ],
     },
     footer: {
@@ -59,6 +70,13 @@ const config: Config = {
             {label: 'Lessons', to: '/docs/why-agent-payments'},
             {label: 'Roadmap', to: '/roadmap'},
             {label: 'Glossary', to: '/glossary'},
+          ],
+        },
+        {
+          title: 'This site',
+          items: [
+            {label: 'Source on GitHub', href: 'https://github.com/dzuluaga/ap2-getting-started'},
+            {label: 'Blog', to: '/blog'},
           ],
         },
         {
