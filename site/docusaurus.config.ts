@@ -88,7 +88,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Built ${new Date().getFullYear()} as a public learning resource.`,
+      copyright: `Built by <a href="https://diegozuluaga.dev">Diego Zuluaga</a> · ${new Date().getFullYear()} · A public learning resource.`,
     },
     prism: {theme: prismThemes.github, darkTheme: prismThemes.dracula},
   } satisfies Preset.ThemeConfig,

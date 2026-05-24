@@ -41,7 +41,8 @@ export default function Home(): ReactNode {
             />
           </div>
           <p style={{textAlign: 'center', marginTop: '0.75rem', opacity: 0.8}}>
-            A short intro to the Agent Payments Protocol.
+            A short intro to the Agent Payments Protocol — video by Google (not
+            affiliated with this site).
           </p>
         </div>
         <p>
