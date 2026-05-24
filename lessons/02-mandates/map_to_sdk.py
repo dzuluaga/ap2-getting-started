@@ -109,6 +109,14 @@ def main() -> None:
     sdk_cart = to_sdk_cart_mandate(cart, hand["merchant_authorization"])
     print("SDK CartMandate:\n", sdk_cart.model_dump_json(indent=2))
 
+    sdk_payment = to_sdk_payment_mandate(
+        merchant_name="Cat Store",
+        payment_request_id="pr_123",
+        amount=49.99,
+        currency="USD",
+    )
+    print("\nSDK PaymentMandate:\n", sdk_payment.model_dump_json(indent=2))
+
 
 if __name__ == "__main__":
     main()
