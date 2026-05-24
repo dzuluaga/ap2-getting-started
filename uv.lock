@@ -14,7 +14,7 @@ wheels = [
 [[package]]
 name = "ap2"
 version = "0.1"
-source = { git = "https://github.com/google-agentic-commerce/ap2.git#e1ea56db72a6385bce3e5c1112b3a56ce60acb43" }
+source = { git = "https://github.com/google-agentic-commerce/ap2.git?rev=e1ea56db72a6385bce3e5c1112b3a56ce60acb43#e1ea56db72a6385bce3e5c1112b3a56ce60acb43" }
 dependencies = [
     { name = "cryptography" },
     { name = "jwcrypto" },
@@ -39,7 +39,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ap2", git = "https://github.com/google-agentic-commerce/ap2.git" },
+    { name = "ap2", git = "https://github.com/google-agentic-commerce/ap2.git?rev=e1ea56db72a6385bce3e5c1112b3a56ce60acb43" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
 ]
 provides-extras = ["dev"]
