@@ -8,7 +8,7 @@ const config: Config = {
   title: 'AP2 from First Principles',
   tagline: 'Learn the Agent Payments Protocol by building it, then mapping to the SDK.',
   favicon: 'img/favicon.ico',
-  url: 'https://ap2-getting-started.vercel.app',
+  url: 'https://diegozuluaga.dev',
   baseUrl: '/',
   onBrokenLinks: 'throw',
   markdown: {hooks: {onBrokenMarkdownLinks: 'warn'}},
