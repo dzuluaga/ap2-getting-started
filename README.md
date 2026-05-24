@@ -3,7 +3,7 @@
 A public, incremental resource for learning the **Agent Payments Protocol (AP2)**
 by building it by hand, then mapping each piece to the official `ap2` SDK.
 
-**Live site:** _(added after first deploy — see below)_
+**Live site:** https://ap2-getting-started.vercel.app
 
 Each lesson follows the same five-beat spine: **Frame · Build · Map · Inspect ·
 Check**. Every code snippet on the site is real, tested code imported straight

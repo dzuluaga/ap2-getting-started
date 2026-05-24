@@ -1,0 +1,10 @@
+# The site is a static Docusaurus build; Python is not needed at build time.
+# Exclude Python project files so Vercel doesn't auto-detect a Python app.
+# (The lesson .py files under lessons/ and ap2_shared/ ARE kept — code-import
+# reads them as text at build time.)
+.venv
+__pycache__
+.pytest_cache
+pyproject.toml
+uv.lock
+pyrightconfig.json
