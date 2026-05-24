@@ -21,6 +21,6 @@ build-backend = "setuptools.build_meta"
 include = ["ap2_shared*"]
 
 [tool.pytest.ini_options]
-testpaths = ["ap2_shared", "lessons"]
+testpaths = ["ap2_shared", "lessons", "scripts"]
 python_files = ["test_*.py"]
 addopts = "-q"
