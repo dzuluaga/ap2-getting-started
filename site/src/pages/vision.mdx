@@ -1,0 +1,71 @@
+---
+title: The end vision
+description: Where AP2 is going — trusted agentic commerce, composed with UCP, A2A, and MCP.
+---
+
+import Term from '@site/src/components/Term';
+
+# The end vision: trusted agentic commerce
+
+<Term id="ap2">AP2</Term> isn't the whole picture — it's the **trust layer** in a
+stack that lets *any* agent transact with *any* merchant, safely. The goal isn't
+a single clever demo; it's an interoperable ecosystem where a shopping agent can
+discover products anywhere, and the user's intent and payment are backed by
+cryptographic proof with clear accountability. Here's where AP2 sits, and how it
+composes with the <Term id="ucp">Universal Commerce Protocol</Term>.
+
+## The stack
+
+AP2 doesn't replace the other agent protocols — it **extends** them. Each layer
+has one job:
+
+| Layer | Protocol | What it does |
+| :-- | :-- | :-- |
+| Transport | <Term id="a2a">A2A</Term> | Agents discover and talk to each other |
+| Tools & data | <Term id="mcp">MCP</Term> | Agents reach catalogs, APIs, and wallets |
+| Commerce | <Term id="ucp">UCP</Term> | The **Checkout Object** — products, cart, order orchestration |
+| Trust & payment | <Term id="ap2">AP2</Term> | <Term id="mandate">Mandates</Term> (verifiable intent) + payment authorization over that checkout |
+
+The key seam is between UCP and AP2: **UCP produces the Checkout Object, and
+AP2's <Term id="checkout-mandate">Checkout Mandate</Term> signs it.** Per the AP2
+spec, when used with UCP the signed checkout *is* the UCP Checkout Object — the
+two protocols are designed to integrate seamlessly.
+
+## How they compose in one purchase
+
+1. **Discover.** The Shopping Agent finds products — reaching merchants over
+   <Term id="a2a">A2A</Term>, pulling catalogs and wallet data through
+   <Term id="mcp">MCP</Term>.
+2. **Build the checkout.** <Term id="ucp">UCP</Term> assembles a standard
+   **Checkout Object**: the exact items, totals, and terms.
+3. **Sign intent.** AP2 wraps that Checkout Object in a user-authorized
+   <Term id="checkout-mandate">Checkout Mandate</Term>, and a
+   <Term id="payment-mandate">Payment Mandate</Term> authorizes the payment —
+   each a signed, hash-bound artifact (exactly what you build by hand in
+   [Lesson 02](/docs/mandates)).
+4. **Pay with verifiable intent.** The mandates carry deterministic proof of
+   *what the user actually authorized* — <Term id="verifiable-intent">verifiable
+   intent</Term>, not an agent's guess. The network and issuer get visibility,
+   and liability is clear.
+5. **Fulfill.** The merchant fulfills the order; receipts close the loop.
+
+## Why this is the goal
+
+- **Interoperability** — any compliant agent transacts with any compliant
+  merchant, instead of a patchwork of bespoke integrations.
+- **Verifiable intent, not inferred action** — trust rests on signatures, not on
+  an LLM's plausible narration.
+- **Clear accountability** — every party can prove what was authorized, which is
+  what makes issuers and merchants comfortable approving agent-driven payments.
+
+That's the difference between a demo and an ecosystem.
+
+## Where this resource is going
+
+This site builds the AP2 trust layer first, from first principles
+([the roadmap](/roadmap) lays out the path). UCP integration — assembling a real
+Checkout Object and signing it as a Checkout Mandate — is the capstone, Lesson 08.
+
+**Go deeper:** [UCP (ucp.dev)](https://ucp.dev) ·
+[AP2 ↔ UCP integration guide](https://ucp.dev/documentation/ucp-and-ap2/) ·
+[AP2 spec](https://github.com/google-agentic-commerce/AP2)

@@ -47,6 +47,7 @@ const config: Config = {
       items: [
         {type: 'docSidebar', sidebarId: 'lessons', position: 'left', label: 'Lessons'},
         {to: '/roadmap', label: 'Roadmap', position: 'left'},
+        {to: '/vision', label: 'Vision', position: 'left'},
         {to: '/glossary', label: 'Glossary', position: 'left'},
         {to: '/blog', label: 'Blog', position: 'left'},
         {
