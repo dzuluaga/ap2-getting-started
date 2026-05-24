@@ -8,3 +8,5 @@ __pycache__
 pyproject.toml
 uv.lock
 pyrightconfig.json
+site/build
+site/.vercel-out

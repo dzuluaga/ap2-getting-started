@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "cd site && npm install",
-  "buildCommand": "cd site && npm run build",
-  "outputDirectory": "site/build"
+  "buildCommand": "cd site && npm run build && rm -rf .vercel-out && mkdir -p .vercel-out && cp -r build .vercel-out/ap2",
+  "outputDirectory": "site/.vercel-out",
+  "redirects": [
+    { "source": "/", "destination": "/ap2/", "permanent": false },
+    { "source": "/ap2", "destination": "/ap2/", "permanent": false }
+  ]
 }

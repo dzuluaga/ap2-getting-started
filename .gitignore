@@ -10,5 +10,6 @@ __pycache__/
 node_modules/
 site/build/
 site/.docusaurus/
+site/.vercel-out/
 npm-debug.log*
 .vercel

@@ -9,7 +9,7 @@ const config: Config = {
   tagline: 'Learn the Agent Payments Protocol by building it, then mapping to the SDK.',
   favicon: 'img/favicon.ico',
   url: 'https://diegozuluaga.dev',
-  baseUrl: '/',
+  baseUrl: '/ap2/',
   onBrokenLinks: 'throw',
   markdown: {hooks: {onBrokenMarkdownLinks: 'warn'}},
   i18n: {defaultLocale: 'en', locales: ['en']},
