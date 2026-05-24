@@ -53,6 +53,22 @@ Trust comes from *two independent checks*, and the verifier shows both:
 
 Why both? A valid signature alone only proves the JWT is authentic — it says nothing about whether the cart attached to it is the cart that was signed. The hash check closes that gap. The `main()` function demonstrates *both* failure modes directly. First it verifies a good mandate (`True`). Then it re-signs the same cart with a *different* key — a forged signer — and verification returns `False` (**authenticity** fails: the signature doesn't match the expected merchant key). Finally it tampers with the cart total — `... ["value"] = 0.01` — leaving the original signature perfectly valid, yet verification still returns `False` because the recomputed hash no longer equals the signed `cart_hash` (**integrity** fails). Authenticity catches forged signatures; integrity catches a genuine signature being reused over swapped contents. You need both.
 
+### Verify a token yourself in jwt.io
+
+You can also check a signature by hand. Run the builder, which prints each token alongside its signer's public key as a JWK:
+
+```bash
+uv run python lessons/02-mandates/build_mandate.py
+```
+
+Then at [jwt.io](https://jwt.io):
+
+1. Paste the `user_authorization` JWT into the encoded field — jwt.io decodes the header and payload right away.
+2. jwt.io tries to fetch the verification key from the token's `iss` claim and can't: `iss` here is the placeholder `"user"`, not an HTTPS issuer, so it shows **"Please enter public key manually to verify the JWT signature."** That prompt is *expected* — and it is exactly the key-discovery step real AP2 automates with SD-JWT key binding (`cnf`), which we build in Lesson 03.
+3. Paste the **User public key (JWK)** printed under the token into that key field and set the algorithm to **ES256**. jwt.io now reports the signature as valid. (jwt.io accepts a JWK here; a PEM works too.)
+
+The token and the JWK must come from the *same* run — the keypairs are ephemeral and regenerated each time. The `merchant_authorization` JWT works the same way, using the Merchant JWK.
+
 ## Map
 
 Our hand-built dictionaries are not a simplification of AP2's structure — they *are* it, just untyped. This file translates them into the official SDK models:
