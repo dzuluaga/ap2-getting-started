@@ -1,0 +1,56 @@
+---
+slug: why-agent-payments
+title: 00 · Why agent payments?
+sidebar_position: 1
+---
+
+import Term from '@site/src/components/Term';
+
+## Frame
+
+Every payment rail in use today quietly assumes the same thing: a human is sitting in front of a trusted screen, reading a checkout page they recognize, and clicking "Pay" with their own hands. The card networks, the 3-D Secure prompts, the "is this you?" texts — all of it is built around a person in the loop at the moment money moves. Autonomous agents break that assumption. When a Shopping Agent buys something on your behalf while you sleep, there is no human at the keyboard, no familiar UI being read, no click that can be pointed to later as the moment of consent.
+
+That gap raises four hard questions, and <Term id="ap2">AP2</Term> exists to answer them:
+
+1. **Authorization and auditability.** When an agent acts, what *proof* shows the user granted *this specific* authority? After the fact, can anyone reconstruct who was allowed to spend what?
+2. **Authenticity of intent.** Does the agent's request actually reflect what the user wanted, or just what the agent thinks it heard?
+3. **Agent error and "hallucination."** Language models misread instructions and invent details. What protects a user from a misinterpreted or hallucinated purchase?
+4. **Accountability and liability.** When something goes wrong — a wrong item, a wrong amount, a fraudulent charge — who is responsible, and how do we tell?
+
+The thread running through all four is trust. Not "do we trust the AI?" but "what concrete, checkable evidence lets every party trust the transaction?" AP2's stance is that trust must be anchored to <Term id="verifiable-intent">Verifiable Intent</Term> — deterministic, non-repudiable proof from each party — rather than to an agent's plausible-sounding narration of what the user supposedly meant.
+
+## Build
+
+The cure is signed proof of intent. Instead of an agent *asserting* "the user authorized this," the user (or merchant) produces a cryptographic signature that anyone can independently verify. A claim with no proof is just a story; a claim carrying a valid signature is evidence.
+
+The lesson code makes the contrast concrete:
+
+```py reference title="lessons/00-why-agent-payments/trust_gap.py"
+../../lessons/00-why-agent-payments/trust_gap.py
+```
+
+Read the two functions side by side. `unverifiable_claim()` returns a dictionary whose `proof` field is `None` — the agent says the user authorized a $49.99 purchase, but there is nothing to check. You either take its word for it or you don't. `verifiable_claim()` represents the *same* intent, but it calls `make_jwt(...)` to sign the structured intent (`buy Catnip Deluxe`, `max_amount`, `currency`) with the user's private key. Its `proof` field is now a signed JSON Web Token: a string anyone holding the user's public key can verify, and that no one without the private key could have forged. The intent is identical; what changed is that one version is checkable and the other is not.
+
+## Map
+
+This single move — replacing an assertion with a signature — is exactly AP2's foundational principle, **"Verifiable Intent, Not Inferred Action."** The protocol refuses to let a transaction rest on what an agent *inferred* the user wanted. It demands an artifact: signed, structured, verifiable proof of intent that travels with the transaction and survives scrutiny later.
+
+In AP2 those artifacts have a name: **mandates**. The toy JWT above is the seed of the real thing. A mandate is signed, hash-bound intent, and it is the unit of trust the rest of the protocol is built on. We build the first real mandates by hand in [Lesson 02](mandates).
+
+## Inspect
+
+Run the example yourself from the repo root:
+
+```bash
+uv run python lessons/00-why-agent-payments/trust_gap.py
+```
+
+You will see two printed dictionaries. The first (`Without AP2:`) has `'proof': None` — a bare assertion. The second (`With AP2:`) has a `proof` value that is a long string beginning with `eyJ...`: that is the base64url-encoded JWT, signed with ES256. The header and payload encode to JSON that starts with `{"...`, which base64url-encodes to `eyJ`. That unassuming `eyJ...` blob is the whole point — it is intent you can verify instead of intent you have to believe.
+
+## Check
+
+- Name two of the four trust questions that agents break.
+- Why isn't an LLM's say-so enough to authorize a payment?
+- What does AP2 anchor transactions to instead of inferred action?
+
+Further reading: [AP2 overview](https://github.com/google-agentic-commerce/AP2/blob/main/docs/overview.md).

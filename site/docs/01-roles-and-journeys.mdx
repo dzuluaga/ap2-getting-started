@@ -1,0 +1,54 @@
+---
+slug: roles-and-journeys
+title: 01 · The cast & the journeys
+sidebar_position: 2
+---
+
+import Term from '@site/src/components/Term';
+
+## Frame
+
+An AP2 transaction is a small play with a fixed cast. Knowing who does what — and who is *allowed* to do what — is most of the battle, because the protocol's guarantees are really statements about which role signs which artifact. There are six roles:
+
+- The <Term id="shopping-agent">Shopping Agent</Term> is the agent that talks to the user, discovers products, builds the cart, and drives the purchase forward. It is the conductor, but notably it is *not* trusted to fabricate consent or to see sensitive payment data.
+- The <Term id="credential-provider">Credential Provider</Term> is the user's wallet: it holds the payment credentials and releases them under the right conditions.
+- The <Term id="merchant">Merchant</Term> owns the catalog, signs the cart, and ultimately fulfills the order. When you need to trust *what is being bought and for how much*, you trust the merchant's signature.
+- The <Term id="merchant-payment-processor">Merchant Payment Processor</Term> submits the transaction into the payment ecosystem for authorization on the merchant's behalf.
+- The <Term id="trusted-surface">Trusted Surface</Term> is a non-agentic UI — a screen the user actually trusts — where they review the real terms and give informed, signed consent. This is the one place a human's intent is captured, deliberately kept outside the agent.
+- The **Network / Issuer** runs the underlying payment rails, issues the credentials, and performs the final authorization, just as it does for card payments today.
+
+These roles play out across two journeys. In the <Term id="human-present">Human-Present</Term> journey the user is available right now to approve the payment in the moment. In the <Term id="human-not-present">Human-Not-Present</Term> journey the user is *not* available at payment time, so they pre-authorize constraints up front and the agent acts later, within those limits, on their behalf.
+
+## Build
+
+The lesson code lays out the cast and both journeys as plain data and step lists:
+
+```py reference title="lessons/01-roles-and-journeys/roles.py"
+../../lessons/01-roles-and-journeys/roles.py
+```
+
+The `ROLES` dictionary is the cast list. The two functions are the scripts. Read `human_present_steps()` top to bottom: the user gives the Shopping Agent a task; the agent assembles a cart with the merchant; the **merchant signs the cart** (that signed cart is the Checkout Mandate); the **Trusted Surface shows the cart and the user signs to approve**; finally the Payment Mandate is shared with the Network/Issuer and the payment executes. Notice the division of labor — the agent assembles, the merchant attests to the cart, and the human consents on a surface they trust.
+
+`human_not_present_steps()` tells a different story. The user can't approve in the moment, so they approve *constraints* in advance — for example, "buy when the price drops below $100." That up-front approval is an **open** Checkout Mandate: real authority, but not yet bound to any particular cart. The Shopping Agent then waits. When a cart finally satisfies the constraints, the mandate is **closed** — bound to that specific cart — and payment runs.
+
+## Map
+
+In real deployments these six roles are logical, not necessarily six separate companies. The AP2 overview gives several non-normative examples of roles being combined: a Shopping Agent can host its own Credential Provider (the agent and the wallet are the same product), and a Merchant can act as its own Merchant Payment Processor. The protocol cares about which *role* signs each artifact, not how many distinct vendors are involved — so collapsing roles is fine as long as the right signatures still appear at the right steps.
+
+## Inspect
+
+Run it from the repo root:
+
+```bash
+uv run python lessons/01-roles-and-journeys/roles.py
+```
+
+You'll get the cast printed first, then the two journeys as bullet lists. Look closely at the Human-Not-Present output: the step where the **open** mandate becomes **closed** once a matching cart exists. That Open→Closed transition is where pre-authorized intent gets bound to a concrete purchase — it foreshadows [Lesson 02](mandates), where we build mandates by hand, and a future lesson on autonomous, human-not-present delegation.
+
+## Check
+
+- Which role signs the cart? (The Merchant.)
+- Where does the user actually consent? (On the Trusted Surface.)
+- What flips a mandate from Open to Closed? (A specific cart that satisfies the pre-approved constraints, binding the mandate to that concrete action.)
+
+Further reading: [AP2 overview](https://github.com/google-agentic-commerce/AP2/blob/main/docs/overview.md).
