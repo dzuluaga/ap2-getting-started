@@ -3,6 +3,7 @@ from ap2_shared.keys import generate_p256_keypair
 
 import build_mandate
 import verify_mandate
+import map_to_sdk
 
 
 def _sample_cart():
@@ -81,3 +82,39 @@ def test_wrong_merchant_key_fails_verification():
     cart = _sample_cart()
     mandate = build_mandate.build_checkout_mandate(cart, priv, "m-1")
     assert verify_mandate.verify_checkout_mandate(mandate, attacker_pub) is False
+
+
+def test_sdk_cart_mandate_matches_hand_built_business_fields():
+    merchant_priv, merchant_pub = generate_p256_keypair()
+    cart = _sample_cart()
+    hand = build_mandate.build_checkout_mandate(cart, merchant_priv, "m-1")
+
+    sdk_cart = map_to_sdk.to_sdk_cart_mandate(
+        cart, hand["merchant_authorization"]
+    )
+    assert sdk_cart.contents.id == hand["contents"]["id"]
+    assert sdk_cart.contents.merchant_name == hand["contents"]["merchant_name"]
+    assert (
+        sdk_cart.contents.payment_request.details.total.amount.value
+        == hand["contents"]["payment_request"]["details"]["total"]["amount"][
+            "value"
+        ]
+    )
+    # The SDK model carries our by-hand merchant JWT unchanged, and it still
+    # verifies against the merchant's public key.
+    assert sdk_cart.merchant_authorization == hand["merchant_authorization"]
+    assert verify_mandate.verify_checkout_mandate(hand, merchant_pub) is True
+
+
+def test_sdk_payment_mandate_builds():
+    sdk_payment = map_to_sdk.to_sdk_payment_mandate(
+        merchant_name="Cat Store",
+        payment_request_id="pr_123",
+        amount=49.99,
+        currency="USD",
+    )
+    assert sdk_payment.payment_mandate_contents.merchant_agent == "Cat Store"
+    assert (
+        sdk_payment.payment_mandate_contents.payment_details_total.amount.value
+        == 49.99
+    )
