@@ -1,0 +1,92 @@
+---
+slug: mandates
+title: 02 · Mandates, the unit of trust
+sidebar_position: 3
+---
+
+import Term from '@site/src/components/Term';
+
+## Frame
+
+A <Term id="mandate">Mandate</Term> is signed, hash-bound intent — and it is the unit of trust the whole protocol is built on. "Signed" means a party put their cryptographic signature on it, so it can't be forged. "Hash-bound" means it commits to specific content (a particular cart, a particular amount) via a hash, so it can't be quietly edited after the fact. Lesson 00 hinted at this with a toy JWT; here we build the real artifacts.
+
+There are two mandates in play, and they answer two different questions:
+
+- The <Term id="checkout-mandate">Checkout Mandate</Term> authorizes completing a *specific* checkout. The **merchant** signs it, attesting "these items at this total are a genuine offer from me." It answers *what is being bought, and on what terms?*
+- The <Term id="payment-mandate">Payment Mandate</Term> authorizes the *payment* for that checkout. It is bound to the checkout and ultimately carries the user's authorization. It answers *who is paying, and did they agree?*
+
+Mandates also come in two states. An <Term id="open-mandate">Open</Term> mandate carries authority and constraints but is not yet bound to a particular action (recall the "buy when price < $100" case from Lesson 01). A <Term id="closed-mandate">Closed</Term> mandate is bound to a specific action with a verifier. Open is potential authority; closed is exercised authority.
+
+One terminology note that trips people up: the AP2 SDK's stable data models still name the merchant-signed cart object `CartMandate`, while the current spec and docs call the same concept a **Checkout Mandate**. Same idea — the vocabulary simply evolved. We map our hand-built version onto the SDK's `CartMandate` later in this lesson, so you can see they are the same thing spelled two ways.
+
+## Build
+
+Before we sign anything, the 30-second tour of a JWT. A compact JWT is three base64url-encoded parts joined by dots: `base64url(header).base64url(payload).signature`. The header says which algorithm is in use; the payload is the JSON claims you care about. The signature is computed with ES256 (ECDSA over the P-256 curve, SHA-256) over the first two parts joined — `header.payload` — so any change to either part invalidates it. One subtlety the JOSE standard insists on: the signature is the raw **R‖S** concatenation (64 bytes), *not* the ASN.1/DER encoding that most crypto libraries hand you by default, so we convert between the two explicitly.
+
+Here is the JOSE primitive that does exactly that — and nothing more:
+
+```py reference title="ap2_shared/jose.py"
+../../ap2_shared/jose.py
+```
+
+Trace `make_jwt`: it canonicalizes the header and payload to deterministic JSON (sorted keys, no whitespace), base64url-encodes each, signs the `header.payload` string, and joins the three pieces. `_es256_sign` is where the DER→R‖S conversion happens via `decode_dss_signature`. `sha256_b64url` and `canonical_json` are the tools we'll use to make a mandate *hash-bound*. (Note `verify_jwt`'s honest caveat: it does not check the header's `alg`, which a production verifier must do to avoid algorithm-confusion attacks — fine here for teaching clarity.)
+
+With the primitive in hand, the builder constructs both mandates:
+
+```py reference title="lessons/02-mandates/build_mandate.py"
+../../lessons/02-mandates/build_mandate.py
+```
+
+Walk it in three moves. First, `build_cart_contents` assembles a cart dict that mirrors the SDK's `CartContents`, with a W3C-style `payment_request` carrying display items and a total. Second, `build_checkout_mandate` computes `cart_hash = sha256_b64url(canonical_json(cart_contents))` and signs a JWT whose claims *include that hash*. The signed JWT becomes the `merchant_authorization` field. This is the key idea: the merchant doesn't sign the cart object directly — it signs a hash of the cart, so the signature is small and fixed-size but still inseparable from the exact contents. Change one cent of the total and the hash no longer matches.
+
+Third, `build_payment_mandate` binds the payment to the checkout. It computes `checkout_hash = sha256_b64url(checkout_jwt.encode(...))` — the hash of the merchant's *signed JWT string* (which already commits to the cart via `cart_hash`), and a `payment_hash` over its own contents. Both go into the `transaction_data` claim of a JWT signed as the user, producing `user_authorization`. So the Payment Mandate points at the Checkout Mandate by hash: a chain of commitments, each link a hash, each container a signature.
+
+## Inspect
+
+Trust comes from *two independent checks*, and the verifier shows both:
+
+```py reference title="lessons/02-mandates/verify_mandate.py"
+../../lessons/02-mandates/verify_mandate.py
+```
+
+`verify_checkout_mandate` does exactly two things. **Authenticity:** it calls `verify_jwt(...)` with the merchant's public key — if the signature is invalid (or the JWT was forged), this returns `None` and verification fails. **Integrity:** it recomputes `sha256_b64url(canonical_json(checkout_mandate["contents"]))` from the cart you currently hold and compares it to the `cart_hash` claim inside the signed JWT. Both must pass.
+
+Why both? A valid signature alone only proves the JWT is authentic — it says nothing about whether the cart attached to it is the cart that was signed. The hash check closes that gap. The `main()` function demonstrates *both* failure modes directly. First it verifies a good mandate (`True`). Then it re-signs the same cart with a *different* key — a forged signer — and verification returns `False` (**authenticity** fails: the signature doesn't match the expected merchant key). Finally it tampers with the cart total — `... ["value"] = 0.01` — leaving the original signature perfectly valid, yet verification still returns `False` because the recomputed hash no longer equals the signed `cart_hash` (**integrity** fails). Authenticity catches forged signatures; integrity catches a genuine signature being reused over swapped contents. You need both.
+
+The same file also verifies the **Payment Mandate** with `verify_payment_mandate`. It runs the authenticity check against the *user's* key, then reads the JWT's `transaction_data` to confirm two more things: the payment-contents hash still matches (integrity), and it contains the hash of *this* Checkout Mandate's signed JWT — so the payment is bound to the exact checkout it authorizes. Hand it a different checkout and it returns `False`, even if the cart looks identical, because each Checkout Mandate is a distinct signed JWT. That is the hash chain from the Build step doing its job: tamper anywhere — the cart, the payment contents, or *which* checkout the payment points at — and a hash stops matching, so verification fails.
+
+### Verify a token yourself in jwt.io
+
+You can also check a signature by hand. Run the builder, which prints each token alongside its signer's public key as a JWK:
+
+```bash
+uv run python lessons/02-mandates/build_mandate.py
+```
+
+Then at [jwt.io](https://jwt.io):
+
+1. Paste the `user_authorization` JWT into the encoded field — jwt.io decodes the header and payload right away.
+2. jwt.io tries to fetch the verification key from the token's `iss` claim and can't: `iss` here is the placeholder `"user"`, not an HTTPS issuer, so it shows **"Please enter public key manually to verify the JWT signature."** That prompt is *expected* — and it is exactly the key-discovery step real AP2 automates with SD-JWT key binding (`cnf`), which we build in Lesson 03.
+3. Paste the **User public key (JWK)** printed under the token into that key field and set the algorithm to **ES256**. jwt.io now reports the signature as valid. (jwt.io accepts a JWK here; a PEM works too.)
+
+The token and the JWK must come from the *same* run — the keypairs are ephemeral and regenerated each time. The `merchant_authorization` JWT works the same way, using the Merchant JWK.
+
+## Map
+
+Our hand-built dictionaries are not a simplification of AP2's structure — they *are* it, just untyped. This file translates them into the official SDK models:
+
+```py reference title="lessons/02-mandates/map_to_sdk.py"
+../../lessons/02-mandates/map_to_sdk.py
+```
+
+`to_sdk_cart_mandate` takes our cart dict plus the `merchant_authorization` string and produces a real `ap2.models.mandate.CartMandate`, complete with a typed `PaymentRequest`, `PaymentDetailsInit`, `PaymentItem`, and `PaymentCurrencyAmount`. `to_sdk_payment_mandate` builds the typed `PaymentMandate` / `PaymentMandateContents`. Field for field, our dicts line up with the SDK — the merchant signature lands in `CartMandate.merchant_authorization`, the totals land in `PaymentItem`/`PaymentCurrencyAmount`, and so on.
+
+Two things we are deliberately deferring. First, in production `PaymentMandate.user_authorization` is not a plain JWT but an <Term id="sd-jwt">SD-JWT</Term> verifiable presentation, so the user can reveal only the fields each party needs. Second, the SDK also ships a newer SD-JWT `CheckoutMandate` **chain** under `ap2.sdk` — with selective disclosure and key binding linking the steps together. Both are a future lesson; here we map to the classic `ap2.models` to prove the by-hand structure is the genuine article.
+
+## Check
+
+- Why two checks — signature *and* hash? (Signature proves authenticity; the hash proves the cart in front of you is the one that was signed. A valid signature over a swapped cart still fails the hash check.)
+- Who signs the Checkout Mandate versus the Payment Mandate? (The merchant signs the Checkout Mandate; the user signs the Payment Mandate's authorization.)
+- What does Open→Closed mean for a mandate? (Open carries authority and constraints but isn't bound to an action; closing binds it to a specific cart/action with a verifier.)
+
+Further reading: the [SDK mandate models](https://github.com/google-agentic-commerce/AP2/blob/main/code/sdk/python/ap2/models/mandate.py) and the [SDK README](https://github.com/google-agentic-commerce/AP2/blob/main/code/sdk/python/ap2/sdk/README.md).
