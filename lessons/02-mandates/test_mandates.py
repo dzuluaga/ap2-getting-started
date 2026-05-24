@@ -2,6 +2,7 @@ from ap2_shared.jose import verify_jwt, sha256_b64url, canonical_json
 from ap2_shared.keys import generate_p256_keypair
 
 import build_mandate
+import verify_mandate
 
 
 def _sample_cart():
@@ -54,3 +55,29 @@ def test_payment_mandate_links_to_the_checkout_mandate():
         canonical_json(payment["payment_mandate_contents"])
     )
     assert payment_hash in payload["transaction_data"]
+
+
+def test_valid_checkout_mandate_verifies():
+    priv, pub = generate_p256_keypair()
+    cart = _sample_cart()
+    mandate = build_mandate.build_checkout_mandate(cart, priv, "m-1")
+    assert verify_mandate.verify_checkout_mandate(mandate, pub) is True
+
+
+def test_tampered_cart_fails_verification():
+    priv, pub = generate_p256_keypair()
+    cart = _sample_cart()
+    mandate = build_mandate.build_checkout_mandate(cart, priv, "m-1")
+    # Attacker lowers the price after the merchant signed the cart.
+    mandate["contents"]["payment_request"]["details"]["total"]["amount"][
+        "value"
+    ] = 0.01
+    assert verify_mandate.verify_checkout_mandate(mandate, pub) is False
+
+
+def test_wrong_merchant_key_fails_verification():
+    priv, _ = generate_p256_keypair()
+    _, attacker_pub = generate_p256_keypair()
+    cart = _sample_cart()
+    mandate = build_mandate.build_checkout_mandate(cart, priv, "m-1")
+    assert verify_mandate.verify_checkout_mandate(mandate, attacker_pub) is False
