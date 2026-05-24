@@ -82,7 +82,12 @@ def build_payment_mandate(
     """Authorize payment, binding to the checkout via its signed-JWT hash."""
     now = int(datetime.now(UTC).timestamp())
     checkout_jwt = checkout_mandate["merchant_authorization"]
+    # transaction_data[0] hashes the checkout JWT *string* (which itself
+    # commits to the cart via cart_hash), not the whole CartMandate object.
     checkout_hash = sha256_b64url(checkout_jwt.encode("ascii"))
+    # The SDK's PaymentMandateContents also has payment_details_total and
+    # payment_response; we omit them here since they need a completed payment
+    # (covered in a later lesson).
     contents = {
         "payment_mandate_id": str(uuid.uuid4()),
         "payment_details_id": checkout_mandate["contents"]["payment_request"][
@@ -92,7 +97,8 @@ def build_payment_mandate(
         "timestamp": datetime.now(UTC).isoformat(),
     }
     payment_hash = sha256_b64url(canonical_json(contents))
-    # In real AP2 this is an SD-JWT VP; here a plain JWT (see Lesson 03).
+    # In real AP2 this is an SD-JWT VP and `iss` is the user's wallet DID /
+    # issuer URL; here a plain JWT with a placeholder issuer (see Lesson 03).
     authorization = make_jwt(
         {
             "iss": "user",

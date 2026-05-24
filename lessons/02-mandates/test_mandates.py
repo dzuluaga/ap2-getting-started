@@ -49,3 +49,8 @@ def test_payment_mandate_links_to_the_checkout_mandate():
         checkout["merchant_authorization"].encode("ascii")
     )
     assert checkout_hash in payload["transaction_data"]
+    # Both bindings are committed: the checkout JWT and the payment contents.
+    payment_hash = sha256_b64url(
+        canonical_json(payment["payment_mandate_contents"])
+    )
+    assert payment_hash in payload["transaction_data"]
