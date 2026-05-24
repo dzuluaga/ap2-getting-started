@@ -37,6 +37,16 @@ def main() -> None:
     mandate = build_mandate.build_checkout_mandate(cart, priv, "m-1")
     print("Valid mandate verifies:", verify_checkout_mandate(mandate, pub))
 
+    # Authenticity: a mandate signed by the wrong key fails verification.
+    attacker_priv, _ = generate_p256_keypair()
+    forged = build_mandate.build_checkout_mandate(cart, attacker_priv, "attacker")
+    print(
+        "Forged-signer mandate verifies:",
+        verify_checkout_mandate(forged, pub),
+        "(expected False)",
+    )
+
+    # Integrity: tampering with the cart after signing fails verification.
     mandate["contents"]["payment_request"]["details"]["total"]["amount"][
         "value"
     ] = 0.01

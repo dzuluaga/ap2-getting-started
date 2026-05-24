@@ -20,7 +20,7 @@ def human_present_steps() -> list[str]:
     return [
         "User gives the Shopping Agent a task.",
         "Shopping Agent assembles a cart with the Merchant.",
-        "Merchant signs the cart (the Checkout Mandate).",
+        "Merchant signs the cart contents, producing the Checkout Mandate.",
         "Trusted Surface shows the cart; user signs to approve.",
         "Payment Mandate is shared with the Network/Issuer; payment executes.",
     ]
