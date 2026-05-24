@@ -73,7 +73,13 @@ def make_jwt(payload: dict, private_key, kid: str) -> str:
 
 
 def verify_jwt(token: str, public_key) -> dict | None:
-    """Return the payload if the signature is valid, else None."""
+    """Return the payload if the ES256 signature is valid, else None.
+
+    Always verifies with ES256 and the supplied key. The `alg` field in the
+    header is NOT checked — intentional for teaching clarity. A production
+    library must reject tokens whose `alg` does not match the expected
+    algorithm, otherwise it is open to algorithm-confusion attacks.
+    """
     try:
         encoded_header, encoded_payload, encoded_sig = token.split(".")
     except ValueError:
@@ -86,5 +92,8 @@ def verify_jwt(token: str, public_key) -> dict | None:
 
 def decode_jwt_unverified(token: str) -> dict:
     """Decode the payload WITHOUT checking the signature (for inspection)."""
-    _, encoded_payload, _ = token.split(".")
+    parts = token.split(".")
+    if len(parts) != 3:
+        raise ValueError(f"Expected 3 JWT segments, got {len(parts)}")
+    _, encoded_payload, _ = parts
     return json.loads(b64url_decode(encoded_payload))
