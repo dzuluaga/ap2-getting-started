@@ -1,6 +1,8 @@
+from cryptography.hazmat.primitives.asymmetric import ec
+
 from ap2_shared.jose import (
     b64url_encode, b64url_decode, canonical_json, sha256_b64url,
-    make_jwt, verify_jwt, decode_jwt_unverified,
+    make_jwt, verify_jwt, decode_jwt_unverified, public_jwk,
 )
 from ap2_shared.keys import generate_p256_keypair
 
@@ -57,3 +59,18 @@ def test_verify_fails_on_tampered_payload():
     head, _, sig = token.split(".")
     evil = b64url_encode(canonical_json({"iss": "merchant", "amount": 9999}))
     assert verify_jwt(f"{head}.{evil}.{sig}", pub) is None
+
+
+def test_public_jwk_round_trips_to_a_verifying_key():
+    priv, pub = generate_p256_keypair()
+    jwk = public_jwk(pub, kid="m-1")
+    assert jwk["kty"] == "EC" and jwk["crv"] == "P-256" and jwk["kid"] == "m-1"
+    # Reconstruct the public key from the JWK and confirm it verifies a token
+    # the private key signed — proving x/y are the real, correct coordinates.
+    x = int.from_bytes(b64url_decode(jwk["x"]), "big")
+    y = int.from_bytes(b64url_decode(jwk["y"]), "big")
+    reconstructed = ec.EllipticCurvePublicNumbers(
+        x, y, ec.SECP256R1()
+    ).public_key()
+    token = make_jwt({"iss": "merchant"}, priv, kid="m-1")
+    assert verify_jwt(token, reconstructed) is not None

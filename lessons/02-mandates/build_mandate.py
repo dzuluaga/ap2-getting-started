@@ -17,7 +17,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from ap2_shared.jose import canonical_json, make_jwt, sha256_b64url
+from ap2_shared.jose import canonical_json, make_jwt, public_jwk, sha256_b64url
 from ap2_shared.keys import generate_p256_keypair
 
 
@@ -117,8 +117,8 @@ def build_payment_mandate(
 def main() -> None:
     import json
 
-    merchant_priv, _ = generate_p256_keypair()
-    user_priv, _ = generate_p256_keypair()
+    merchant_priv, merchant_pub = generate_p256_keypair()
+    user_priv, user_pub = generate_p256_keypair()
     cart = build_cart_contents(
         cart_id="cart_123",
         merchant_name="Cat Store",
@@ -130,8 +130,20 @@ def main() -> None:
     )
     checkout = build_checkout_mandate(cart, merchant_priv, "m-1")
     payment = build_payment_mandate(checkout, user_priv, "u-1")
+    # Keys here are ephemeral (regenerated each run). We print each signer's
+    # public key as a JWK so the tokens above can be verified in any JWT tool
+    # (select ES256). Real AP2 distributes these via SD-JWT key binding — see
+    # Lesson 03 — rather than printing them.
     print("Checkout Mandate:\n", json.dumps(checkout, indent=2))
+    print(
+        "\nMerchant public key (JWK) — verifies merchant_authorization:\n",
+        json.dumps(public_jwk(merchant_pub, "m-1"), indent=2),
+    )
     print("\nPayment Mandate:\n", json.dumps(payment, indent=2))
+    print(
+        "\nUser public key (JWK) — verifies user_authorization:\n",
+        json.dumps(public_jwk(user_pub, "u-1"), indent=2),
+    )
 
 
 if __name__ == "__main__":

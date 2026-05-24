@@ -97,3 +97,22 @@ def decode_jwt_unverified(token: str) -> dict:
         raise ValueError(f"Expected 3 JWT segments, got {len(parts)}")
     _, encoded_payload, _ = parts
     return json.loads(b64url_decode(encoded_payload))
+
+
+def public_jwk(public_key, kid: str | None = None) -> dict:
+    """Export an EC P-256 public key as a JWK (the format AP2 uses in `cnf`).
+
+    Built by hand from the curve point's (x, y) coordinates so the mapping from
+    a public key to a JWK is visible. Paste the result into a JWT tool (selecting
+    ES256) to verify a token this key signed.
+    """
+    numbers = public_key.public_numbers()
+    jwk = {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": b64url_encode(numbers.x.to_bytes(32, "big")),
+        "y": b64url_encode(numbers.y.to_bytes(32, "big")),
+    }
+    if kid is not None:
+        jwk["kid"] = kid
+    return jwk
