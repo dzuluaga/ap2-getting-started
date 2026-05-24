@@ -25,11 +25,17 @@ from ap2.models.payment_request import (
 
 
 def to_sdk_cart_mandate(cart_contents: dict, merchant_authorization: str) -> CartMandate:
+    """Translate our hand-built cart dict into the SDK's typed CartMandate."""
     details = cart_contents["payment_request"]["details"]
     total = details["total"]
-    item = details["display_items"][0]
     payment_request = PaymentRequest(
-        method_data=[PaymentMethodData(supported_methods="card", data={})],
+        method_data=[
+            PaymentMethodData(
+                supported_methods=md["supported_methods"],
+                data=md.get("data", {}),
+            )
+            for md in cart_contents["payment_request"]["method_data"]
+        ],
         details=PaymentDetailsInit(
             id=details["id"],
             display_items=[
@@ -40,6 +46,7 @@ def to_sdk_cart_mandate(cart_contents: dict, merchant_authorization: str) -> Car
                         value=item["amount"]["value"],
                     ),
                 )
+                for item in details["display_items"]
             ],
             total=PaymentItem(
                 label=total["label"],
@@ -67,8 +74,9 @@ def to_sdk_cart_mandate(cart_contents: dict, merchant_authorization: str) -> Car
 def to_sdk_payment_mandate(
     *, merchant_name: str, payment_request_id: str, amount: float, currency: str
 ) -> PaymentMandate:
+    """Build the SDK's typed PaymentMandate from simple values."""
     contents = PaymentMandateContents(
-        payment_mandate_id="pm_123",
+        payment_mandate_id="pm_123",  # static demo id; real flows generate one
         payment_details_id=payment_request_id,
         payment_details_total=PaymentItem(
             label="Total",
