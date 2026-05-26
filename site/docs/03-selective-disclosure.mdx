@@ -64,8 +64,8 @@ And this is exactly the answer to Lesson 02's jwt.io puzzle. There, the tool ask
 
 Our hand-built flow is the genuine article. The SDK gives it types and a packaged client surface, and re-uses the same primitives end-to-end:
 
-```py reference title="lessons/03-selective-disclosure/map_to_sdk.py"
-../../lessons/03-selective-disclosure/map_to_sdk.py
+```py reference title="lessons/03-selective-disclosure/sdjwt_to_sdk.py"
+../../lessons/03-selective-disclosure/sdjwt_to_sdk.py
 ```
 
 **Our primitives → SDK calls.** `MandateClient.create(...)` is `make_sdjwt`: the issuer signs a root SD-JWT whose `_sd` array hashes the selectively-disclosable constraints and whose payload contains the holder's `cnf`. `MandateClient.present(...)` is `make_kb_jwt` followed by `attach_kb`: the holder signs a KB-style hop scoped to `(aud, nonce)` and appends it to the chain. `MandateClient.verify(...)` is our `verify`: issuer-signature check, KB-binding check (including `aud`/`nonce` and `sd_hash`), and disclosure resolution against `_sd`. Our `verify` and the SDK's `verify` are the same three checks; ours just doesn't ship type stubs and a credential-resolver interface.

@@ -116,7 +116,9 @@ def test_lesson_missing_kb_when_aud_required_fails():
 
 
 def test_sdk_open_payment_mandate_flow_verifies():
-    import map_to_sdk
-    payloads = map_to_sdk.open_payment_mandate_flow()
+    # Renamed from `map_to_sdk` to avoid sys.modules collision with Lesson 02's
+    # same-named file (hyphenated lesson dirs can't be Python packages).
+    import sdjwt_to_sdk
+    payloads = sdjwt_to_sdk.open_payment_mandate_flow()
     # The SDK returns a list of per-token effective payloads for chains.
     assert isinstance(payloads, list) and len(payloads) >= 1
