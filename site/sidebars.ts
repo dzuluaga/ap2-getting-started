@@ -5,6 +5,7 @@ const sidebars: SidebarsConfig = {
     'why-agent-payments',
     'roles-and-journeys',
     'mandates',
+    'selective-disclosure',
   ],
 };
 

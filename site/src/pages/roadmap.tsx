@@ -8,7 +8,7 @@ const lessons: Lesson[] = [
   {n: '00', title: 'Why agent payments?', v1: true},
   {n: '01', title: 'The cast & the journeys', v1: true},
   {n: '02', title: 'Mandates, the unit of trust', v1: true},
-  {n: '03', title: 'Selective disclosure: SD-JWT & key binding', v1: false},
+  {n: '03', title: 'Selective disclosure: SD-JWT & key binding', v1: true},
   {n: '04', title: 'Mandate chains & receipts; SCA & dynamic linking', v1: false},
   {n: '05', title: 'Human-Present happy path, end-to-end', v1: false},
   {n: '06', title: 'Human-Not-Present & autonomous delegation', v1: false},
