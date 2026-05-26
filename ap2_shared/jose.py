@@ -62,9 +62,12 @@ def _es256_verify(signing_input: bytes, raw_sig: bytes, public_key) -> bool:
         return False
 
 
-def make_jwt(payload: dict, private_key, kid: str) -> str:
-    """Build a compact ES256 JWT from a payload dict."""
-    header = {"alg": "ES256", "typ": "JWT", "kid": kid}
+def make_jwt(payload: dict, private_key, kid: str, typ: str = "JWT") -> str:
+    """Build a compact ES256 JWT from a payload dict.
+
+    `typ` defaults to `"JWT"` (RFC 7519). Pass `"kb+jwt"` for a Key-Binding JWT.
+    """
+    header = {"alg": "ES256", "typ": typ, "kid": kid}
     encoded_header = b64url_encode(canonical_json(header))
     encoded_payload = b64url_encode(canonical_json(payload))
     signing_input = f"{encoded_header}.{encoded_payload}".encode("ascii")

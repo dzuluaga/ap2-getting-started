@@ -74,3 +74,13 @@ def test_public_jwk_round_trips_to_a_verifying_key():
     ).public_key()
     token = make_jwt({"iss": "merchant"}, priv, kid="m-1")
     assert verify_jwt(token, reconstructed) is not None
+
+
+def test_make_jwt_supports_custom_typ():
+    import json
+    priv, _ = generate_p256_keypair()
+    token = make_jwt({"foo": "bar"}, priv, kid="m-1", typ="kb+jwt")
+    head_b64 = token.split(".")[0]
+    header = json.loads(b64url_decode(head_b64))
+    assert header["typ"] == "kb+jwt"
+    assert header["alg"] == "ES256"
