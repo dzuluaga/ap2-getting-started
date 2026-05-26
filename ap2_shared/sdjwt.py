@@ -47,3 +47,51 @@ def make_disclosure(
     blob = json.dumps([salt, name, value], separators=(",", ":")).encode("utf-8")
     disclosure_b64 = b64url_encode(blob)
     return disclosure_b64, sha256_b64url(disclosure_b64.encode("ascii"))
+
+
+def make_sdjwt(
+    *,
+    payload: dict,
+    sd_claims: list[str],
+    issuer_priv,
+    issuer_kid: str,
+    holder_pub=None,
+) -> tuple[str, dict[str, str]]:
+    """Issue an SD-JWT.
+
+    For each name in ``sd_claims``: move the value out of the clear payload
+    into a disclosure (`make_disclosure`), and put its hash in ``_sd``. If
+    ``holder_pub`` is provided, add ``cnf: {jwk: ...}`` so the verifier can
+    identify the holder for KB. Returns the signed SD-JWT plus the disclosures
+    keyed by claim name.
+    """
+    clear = dict(payload)
+    disclosures: dict[str, str] = {}
+    sd_hashes: list[str] = []
+    for name in sd_claims:
+        if name not in clear:
+            raise KeyError(f"sd_claim {name!r} not in payload")
+        value = clear.pop(name)
+        disc, h = make_disclosure(name, value)
+        disclosures[name] = disc
+        sd_hashes.append(h)
+    clear["_sd"] = sd_hashes
+    if holder_pub is not None:
+        clear["cnf"] = {"jwk": public_jwk(holder_pub)}
+    return make_jwt(clear, issuer_priv, kid=issuer_kid), disclosures
+
+
+def build_presentation(
+    *, sdjwt_token: str, disclosures: dict[str, str], reveal: list[str]
+) -> str:
+    """Holder's presentation up to (but not including) any KB-JWT.
+
+    Returns ``<sdjwt>~<disc_i>~...~`` — only disclosures for claim names in
+    ``reveal``, in the caller's order. Always ends with ``~``.
+    """
+    parts = [sdjwt_token]
+    for name in reveal:
+        if name not in disclosures:
+            raise KeyError(f"no disclosure for {name!r}")
+        parts.append(disclosures[name])
+    return "~".join(parts) + "~"
