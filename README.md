@@ -36,9 +36,13 @@ cd site && npm install && npm run start
 uv run python scripts/new-lesson.py 03 selective-disclosure
 ```
 
-## Lessons (v1)
+## Lessons (available)
 - **00 — Why agent payments?** the trust/liability gap; verifiable intent.
 - **01 — The cast & the journeys** the six roles; Human-Present vs Human-Not-Present.
 - **02 — Mandates, the unit of trust** build Checkout + Payment mandates, then map to the SDK.
+- **03 — Selective disclosure (SD-JWT & key binding)** build issuer–holder–verifier with selective disclosure + KB-JWT, then map to `ap2.sdk.sdjwt` and the AP2 `OpenPaymentMandate` pattern.
 
 See the full roadmap on the site.
+
+## Conventions
+Each lesson's "map to SDK" file is **lesson-named** (`mandates_to_sdk.py`-style — except L02 keeps the original `map_to_sdk.py` for historical reasons; L03 uses `sdjwt_to_sdk.py`). This avoids `sys.modules` collisions when pytest runs tests across multiple lesson dirs (the lesson dir names contain hyphens, so they can't be Python packages).

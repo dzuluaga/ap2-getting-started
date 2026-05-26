@@ -22,7 +22,7 @@ export default function Roadmap(): ReactNode {
     <Layout title="Roadmap" description="The AP2 learning path">
       <main className="container margin-vert--lg">
         <h1>Roadmap</h1>
-        <p>Lessons ship incrementally. v1 covers the foundations (00–02).</p>
+        <p>Lessons ship incrementally. Available now: foundations (00–02) plus selective disclosure (03).</p>
         <ul>
           {lessons.map((l) => (
             <li key={l.n}>

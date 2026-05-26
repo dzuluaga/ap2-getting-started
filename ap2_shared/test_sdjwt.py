@@ -1,7 +1,20 @@
 import json
 
-from ap2_shared.jose import b64url_decode, sha256_b64url
-from ap2_shared.sdjwt import make_disclosure
+from ap2_shared.jose import (
+    b64url_decode,
+    decode_jwt_unverified,
+    sha256_b64url,
+    verify_jwt,
+)
+from ap2_shared.keys import generate_p256_keypair
+from ap2_shared.sdjwt import (
+    attach_kb,
+    build_presentation,
+    make_disclosure,
+    make_kb_jwt,
+    make_sdjwt,
+    verify,
+)
 
 
 def test_make_disclosure_round_trips_and_hashes_the_b64_string():
@@ -18,11 +31,6 @@ def test_make_disclosure_generates_unique_salts_when_omitted():
     a, _ = make_disclosure("country", "CA")
     b, _ = make_disclosure("country", "CA")
     assert a != b  # Different salts → different disclosures even for same (name, value).
-
-
-from ap2_shared.jose import decode_jwt_unverified, verify_jwt
-from ap2_shared.keys import generate_p256_keypair
-from ap2_shared.sdjwt import build_presentation, make_sdjwt
 
 
 def _payload():
@@ -94,10 +102,6 @@ def test_build_presentation_includes_only_revealed_disclosures():
     assert disclosures["over_18"] not in pres
 
 
-from ap2_shared.jose import decode_jwt_unverified
-from ap2_shared.sdjwt import attach_kb, make_kb_jwt
-
-
 def test_make_kb_jwt_signs_with_typ_kb_jwt_and_correct_sd_hash():
     holder_priv, holder_pub = generate_p256_keypair()
     presentation_no_kb = "ey....jwt~ZGlzYzE~"  # arbitrary; we hash whatever we pass
@@ -124,9 +128,6 @@ def test_make_kb_jwt_signs_with_typ_kb_jwt_and_correct_sd_hash():
 def test_attach_kb_concatenates_and_keeps_trailing_tilde():
     out = attach_kb("ey....jwt~ZGlzYzE~", "ey....kb")
     assert out == "ey....jwt~ZGlzYzE~ey....kb~"
-
-
-from ap2_shared.sdjwt import verify
 
 
 def _issue_and_present(reveal, *, aud="merchant.example", nonce="txn-001",

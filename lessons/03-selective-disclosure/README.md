@@ -14,6 +14,6 @@ uv run pytest lessons/03-selective-disclosure -q     # tests
 ## Files
 - `build_sdjwt.py` — issuer issues a credential; holder presents selectively + KB.
 - `verify_sdjwt.py` — verify a presentation; main() demos the four failure modes.
-- `map_to_sdk.py` — the same flow via `ap2.sdk.sdjwt` + an AP2 `OpenPaymentMandate` example.
+- `sdjwt_to_sdk.py` — the same flow via `ap2.sdk.sdjwt` + an AP2 `OpenPaymentMandate` example.
 
 The full narrative lives on the site: **/docs/selective-disclosure**.

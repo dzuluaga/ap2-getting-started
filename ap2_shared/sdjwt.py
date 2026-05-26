@@ -138,6 +138,11 @@ def verify(
     disclosure). Returns the merged-and-revealed claims, or ``None`` on any
     failure. KB-JWT is always verified if present; ``aud``/``nonce`` are only
     checked when ``expected_*`` is provided.
+
+    The KB-JWT's `typ` header is NOT enforced — intentional for teaching
+    clarity. A production verifier must require `typ=kb+jwt` to prevent
+    cross-protocol token substitution (RFC 9901 §4.3) — same family of
+    caveat as the `alg`-confusion note in `ap2_shared.jose.verify_jwt`.
     """
     parts = presentation.split("~")
     # Wire format always ends with "~" → parts has a trailing "".
