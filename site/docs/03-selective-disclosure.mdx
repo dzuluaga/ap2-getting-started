@@ -1,0 +1,83 @@
+---
+slug: selective-disclosure
+title: 03 · Selective disclosure (SD-JWT & key binding)
+sidebar_position: 4
+---
+
+import Term from '@site/src/components/Term';
+
+## Frame
+
+Lesson 02 left a box closed. We built a `user_authorization` JWT whose payload sat in plain view of anyone who held the token — every field of `payment_contents`, every reference to a checkout, all of it readable. That is fine for teaching the mandate-as-hash-chain idea, but it is not how real AP2 ships its presentations. Real AP2 uses <Term id="selective-disclosure">selective disclosure</Term> so that each verifier in the flow sees *only* the fields it needs to decide. For payment use cases the case for this is immediate: a merchant deciding whether to honor a checkout has no business reading the user's full payment instrument, and a fraud-screening service has no business reading the cart's contents. <Term id="sd-jwt">SD-JWT</Term> (RFC 9901) is the format that makes "show only what is needed" cryptographically enforceable instead of relying on each party to be polite.
+
+The shape of the trust model is <Term id="issuer-holder-verifier">issuer → holder → verifier</Term>. An **issuer** signs a credential whose claims are individually hashable. A **holder** receives it, keeps it, and decides — per encounter — which claims to reveal. A **verifier** receives a presentation and decides whether to accept it. The three roles correspond to three signatures-and-checks worth of machinery, and this lesson builds all of them.
+
+Three new vocabulary words carry the lesson:
+
+- A <Term id="disclosure">disclosure</Term> is the tuple `[salt, name, value]`, base64url-encoded. Its SHA-256 hash lands inside the issuer's signed payload (in an array conventionally called `_sd`); the cleartext value lives only in the disclosure itself. Reveal the disclosure and the verifier learns the value; withhold it and the verifier sees only that *some* claim of this name was committed to.
+- The <Term id="cnf">cnf</Term> ("confirmation") claim carries the holder's public key as a JWK, *inside the issuer-signed SD-JWT*. The issuer is asserting "this key belongs to the holder I issued this to."
+- A <Term id="kb-jwt">KB-JWT</Term> (type `kb+jwt`) is a small JWT the holder signs *with the cnf key*, scoped to a particular `aud` and `nonce`, that commits — via an `sd_hash` field — to the exact presentation it accompanies. It is what makes a presentation non-replayable and non-malleable.
+
+This also closes the loop we left dangling at the end of Lesson 02. When we pasted the toy `user_authorization` into jwt.io, it asked us to *paste the public key manually* because `iss: "user"` is not an HTTPS-discoverable issuer. SD-JWT is the answer to that puzzle: the holder's key is not external lookup data at all. It is carried *inside* the issuer-signed credential, in `cnf`. The verifier already trusts the issuer's signature; that signature transitively certifies the key the holder used to sign the KB-JWT. No admin toggle, no manual paste, no DNS — just one chain of trust running issuer → holder → verifier through cryptography.
+
+## Build
+
+Two ideas precede the code. First, *a disclosure is a small, opaque thing.* It is `[salt, name, value]` rendered as deterministic JSON, then base64url-encoded. The SHA-256 of those base64url bytes is the hash that goes into the issuer-signed SD-JWT's `_sd` array. The clear payload no longer contains the value at all — the issuer commits to it indirectly via the hash anchor. The salt matters: without it, a verifier could brute-force a low-entropy value (`over_18: true` has exactly two possibilities) by hashing candidates. With a fresh per-disclosure salt, the hash leaks nothing about the value to anyone who doesn't already hold the disclosure.
+
+Second, *a KB-JWT is small but load-bearing.* It carries `aud`, `nonce`, `iat`, and `sd_hash` — and is signed by the holder using the key the issuer committed to in `cnf`. The `sd_hash` is SHA-256 over the **entire** presentation string up to (but not including) the KB-JWT itself, including every disclosure the holder chose to include, including the trailing `~`. That covers what the holder is presenting *byte for byte*. Swap a disclosure, add one, drop one, and the hash changes — the KB-JWT is suddenly bound to a presentation that no longer exists, so verification fails. `aud` and `nonce` bind the presentation to a specific verifier and a specific transaction, so the same presentation cannot be replayed elsewhere or on a different request.
+
+The shared primitives implement both ideas, building directly on the JOSE module from Lesson 02:
+
+```py reference title="ap2_shared/sdjwt.py"
+../../ap2_shared/sdjwt.py
+```
+
+`make_disclosure` produces `(disclosure_b64url, hash_b64url)` — the holder will eventually transmit the first, and the issuer will commit to the second. `make_sdjwt` walks each name in `sd_claims`, pops the value out of the clear payload into a disclosure, and appends its hash to `_sd`. If `holder_pub` is provided it also writes `cnf: {jwk: ...}`. The whole thing is then signed with `make_jwt` from Lesson 02 — an SD-JWT really is just a normal JWT whose payload has been rewritten to externalize some claims as disclosures.
+
+`build_presentation` builds the holder's selection: the SD-JWT, then `~`-separated disclosures for only the names in `reveal`, with the mandatory trailing `~`. `make_kb_jwt` then hashes *that* string and signs a JWT carrying `aud`, `nonce`, `iat`, and `sd_hash`, with the JOSE typ header set to `kb+jwt`. `attach_kb` appends the KB-JWT and another trailing `~`. The `verify` function we'll meet in the next beat reverses all of this.
+
+With those primitives in hand, the lesson driver tells the story end-to-end:
+
+```py reference title="lessons/03-selective-disclosure/build_sdjwt.py"
+../../lessons/03-selective-disclosure/build_sdjwt.py
+```
+
+Read it as two acts. In `issue_credential`, "Bank of Examples" assembles Alice's payload with five claims (`name`, `country`, `account_id`, `over_18`, `account_tier`), all listed in `SD_CLAIMS`. `make_sdjwt` moves all five into disclosures, hashes each into `_sd`, attaches `cnf=holder_pub` so the verifier will know which key the holder must sign with, and signs the whole thing. The Bank returns both the signed SD-JWT (a normal-looking JWT string) and the dictionary of disclosures keyed by claim name. The Bank does **not** keep the disclosures around — they belong to Alice now.
+
+In `hold_and_present`, Alice — the holder — picks a subset to reveal. The merchant only needs `country` and `over_18`, so that's all she includes. `build_presentation` assembles the no-KB string ending in `~`; `make_kb_jwt` hashes that string, signs `aud="merchant.example"` + `nonce="txn-001"` with Alice's `cnf` key; `attach_kb` appends. The result is the wire format: `<SD-JWT>~<disclosure_country>~<disclosure_over_18>~<KB-JWT>~` — every segment separated by `~`, always a trailing `~`.
+
+## Inspect
+
+Verification undoes Build in reverse:
+
+```py reference title="lessons/03-selective-disclosure/verify_sdjwt.py"
+../../lessons/03-selective-disclosure/verify_sdjwt.py
+```
+
+The verifier performs **three checks**, all of which must pass. (1) **Authenticity** — the SD-JWT itself must verify under the issuer's known public key. If the signature is invalid, nothing else matters. (2) **Holder binding** — if a KB-JWT is present (and it is, here, because we required `aud`/`nonce`), the verifier extracts the JWK from `cnf` inside the now-trusted SD-JWT payload, verifies the KB-JWT signature under it, and recomputes `sha256_b64url(presentation_no_kb)`. That recomputed digest must equal the `sd_hash` claim inside the KB-JWT *byte for byte* — swap any disclosure, include one extra, drop one, and the digest changes and verification fails. If `expected_aud` and `expected_nonce` were supplied, those must match too, blocking replay across verifiers or across transactions. (3) **Selective-disclosure integrity** — every disclosure in the presentation must hash to a value already present in the issuer-signed `_sd` array. The holder cannot fabricate a new claim (its hash won't be in `_sd`) and cannot quietly modify an existing one (a different `value` produces a different disclosure, hence a different hash).
+
+`main()` runs four cases that demonstrate the checks failing in distinct ways. **Valid** — the well-formed presentation produces a revealed-claims dict (`is not None`), so the boolean print is `True`. **Tampered disclosure** — `make_disclosure("over_18", False)` produces a fresh `[salt, "over_18", false]` whose hash is *not* in `_sd` (which only holds the hash of the original `over_18: True` disclosure), so check (3) rejects and `verify` returns `None`. **Wrong-key KB** — the attacker signs the KB-JWT with their own key instead of Alice's, but `cnf` still points at Alice's key, so check (2)'s `verify_jwt(kb_jwt, holder_pub)` fails immediately, returning `None`. **Missing KB** — `verify_presentation` was called with `aud`/`nonce` required, but the holder forgot to attach a KB-JWT, so check (2) rejects on the explicit "KB required by caller but missing" branch.
+
+And this is exactly the answer to Lesson 02's jwt.io puzzle. There, the tool asked us to paste the verification key manually because `iss: "user"` was not an HTTPS issuer. Here, the holder's verification key never needs external lookup — it is the JWK inside `cnf`, *inside the issuer-signed SD-JWT*. The verifier trusts the issuer's signature; the issuer's signature certifies `cnf`; `cnf` certifies the KB-JWT's signer. One unbroken chain back to the issuer, no admin toggle required.
+
+## Map
+
+Our hand-built flow is the genuine article. The SDK gives it types and a packaged client surface, and re-uses the same primitives end-to-end:
+
+```py reference title="lessons/03-selective-disclosure/map_to_sdk.py"
+../../lessons/03-selective-disclosure/map_to_sdk.py
+```
+
+**Our primitives → SDK calls.** `MandateClient.create(...)` is `make_sdjwt`: the issuer signs a root SD-JWT whose `_sd` array hashes the selectively-disclosable constraints and whose payload contains the holder's `cnf`. `MandateClient.present(...)` is `make_kb_jwt` followed by `attach_kb`: the holder signs a KB-style hop scoped to `(aud, nonce)` and appends it to the chain. `MandateClient.verify(...)` is our `verify`: issuer-signature check, KB-binding check (including `aud`/`nonce` and `sd_hash`), and disclosure resolution against `_sd`. Our `verify` and the SDK's `verify` are the same three checks; ours just doesn't ship type stubs and a credential-resolver interface.
+
+**The AP2 use case.** A bank issues an <Term id="open-mandate">Open Payment Mandate</Term> to a Shopping Agent. The SD-JWT's payload carries `cnf` (the Agent's key) plus a list of selectively-disclosable constraints — here, an `AmountRange` of USD 0–5000 and an `AllowedPayees` list containing one merchant ("Cat Store", `M-1`). The Agent now holds an Open mandate it can later spend against. When the user authorizes a checkout, the Agent calls `present(...)` with a typed `PaymentMandate` carrying a specific `transaction_id`, the actual `payment_amount`, and the chosen `payment_instrument`, scoped to `aud="merchant"` + `nonce="tx_abc"`. The Merchant calls `verify(...)`, sees only what the Agent chose to reveal, and accepts (or doesn't) on that basis.
+
+One refinement worth flagging and skipping: the SDK additionally supports **array-element** selective disclosure *inside* a constraint like `AllowedPayees.allowed[]`, so the Agent can reveal "yes, this merchant is in the allowed list" without revealing the entire list. We do not build that here — RFC 9901 specifies it via per-element disclosures and a different `_sd` placement, and the mechanics are a meaningful step beyond object-level SD. Lesson 04 will explore mandate chains where this kind of refinement starts to pay off; for now the object-level version is enough to see the structure.
+
+## Check
+
+- *Where does the verifier get the holder's public key?* — *From `cnf` inside the issuer-signed SD-JWT. The issuer is who said "this key is the holder," so the verifier trusts the chain back to the issuer.*
+- *What stops a holder from showing a modified `over_18` value?* — *Its hash is fixed in the issuer-signed `_sd` array. Change the value, the disclosure's hash no longer matches anything in `_sd`, and the verifier rejects it.*
+- *Why does the KB-JWT include `nonce` and `aud`?* — *They bind the presentation to **this** verifier and **this** transaction. Without them, an attacker who saw a presentation could replay it elsewhere.*
+
+**Further reading:** [RFC 9901 — SD-JWT](https://www.rfc-editor.org/rfc/rfc9901.html), the [AP2 SDK `sdjwt` README](https://github.com/google-agentic-commerce/AP2/blob/main/code/sdk/python/ap2/sdk/README.md), and the [AP2 spec — security & privacy considerations](https://github.com/google-agentic-commerce/AP2/blob/main/docs/ap2/security_and_privacy_considerations.md).
