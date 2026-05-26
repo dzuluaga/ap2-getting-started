@@ -92,3 +92,35 @@ def test_build_presentation_includes_only_revealed_disclosures():
     assert parts[0] == token
     assert parts[1] == disclosures["country"]
     assert disclosures["over_18"] not in pres
+
+
+from ap2_shared.jose import decode_jwt_unverified
+from ap2_shared.sdjwt import attach_kb, make_kb_jwt
+
+
+def test_make_kb_jwt_signs_with_typ_kb_jwt_and_correct_sd_hash():
+    holder_priv, holder_pub = generate_p256_keypair()
+    presentation_no_kb = "ey....jwt~ZGlzYzE~"  # arbitrary; we hash whatever we pass
+    kb = make_kb_jwt(
+        presentation_no_kb=presentation_no_kb,
+        aud="merchant.example",
+        nonce="txn-001",
+        holder_priv=holder_priv,
+        holder_kid="alice-1",
+        now=1700000000,
+    )
+    head = json.loads(b64url_decode(kb.split(".")[0]))
+    payload = decode_jwt_unverified(kb)
+    assert head["typ"] == "kb+jwt"
+    assert head["alg"] == "ES256"
+    assert payload["aud"] == "merchant.example"
+    assert payload["nonce"] == "txn-001"
+    assert payload["iat"] == 1700000000
+    assert payload["sd_hash"] == sha256_b64url(presentation_no_kb.encode("ascii"))
+    # And the signature verifies under the holder's public key.
+    assert verify_jwt(kb, holder_pub) is not None
+
+
+def test_attach_kb_concatenates_and_keeps_trailing_tilde():
+    out = attach_kb("ey....jwt~ZGlzYzE~", "ey....kb")
+    assert out == "ey....jwt~ZGlzYzE~ey....kb~"

@@ -95,3 +95,33 @@ def build_presentation(
             raise KeyError(f"no disclosure for {name!r}")
         parts.append(disclosures[name])
     return "~".join(parts) + "~"
+
+
+def make_kb_jwt(
+    *,
+    presentation_no_kb: str,
+    aud: str,
+    nonce: str,
+    holder_priv,
+    holder_kid: str,
+    now: int | None = None,
+) -> str:
+    """Sign a Key-Binding JWT that covers ``presentation_no_kb``.
+
+    ``sd_hash`` is SHA-256 over the *entire* presentation-up-to-KB (including
+    its trailing ``~``), so any change to which disclosures the holder
+    includes invalidates the KB.
+    """
+    sd_hash = sha256_b64url(presentation_no_kb.encode("ascii"))
+    payload = {
+        "aud": aud,
+        "nonce": nonce,
+        "iat": int(time.time()) if now is None else now,
+        "sd_hash": sd_hash,
+    }
+    return make_jwt(payload, holder_priv, kid=holder_kid, typ="kb+jwt")
+
+
+def attach_kb(presentation_no_kb: str, kb_jwt: str) -> str:
+    """Append a KB-JWT to a presentation, with the trailing ``~``."""
+    return presentation_no_kb + kb_jwt + "~"
