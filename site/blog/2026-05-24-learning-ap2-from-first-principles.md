@@ -19,5 +19,5 @@ unit of trust. From there: selective disclosure (SD-JWT), mandate chains and
 receipts, the full Human-Present flow, autonomous Human-Not-Present delegation,
 and how AP2 rides on A2A.
 
-Start at [Lesson 00](/docs/why-agent-payments), or see the
-[roadmap](/roadmap).
+Start at [Lesson 00](/ap2/docs/why-agent-payments), or see the
+[roadmap](/ap2/roadmap).
