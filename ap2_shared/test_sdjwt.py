@@ -124,3 +124,94 @@ def test_make_kb_jwt_signs_with_typ_kb_jwt_and_correct_sd_hash():
 def test_attach_kb_concatenates_and_keeps_trailing_tilde():
     out = attach_kb("ey....jwt~ZGlzYzE~", "ey....kb")
     assert out == "ey....jwt~ZGlzYzE~ey....kb~"
+
+
+from ap2_shared.sdjwt import verify
+
+
+def _issue_and_present(reveal, *, aud="merchant.example", nonce="txn-001",
+                      attacker_kb=False, tamper_country=False):
+    """Test helper: issue a credential, present with KB, optionally tamper."""
+    issuer_priv, issuer_pub = generate_p256_keypair()
+    holder_priv, holder_pub = generate_p256_keypair()
+    token, disclosures = make_sdjwt(
+        payload={"iss": "Bank", "sub": "alice", "country": "CA", "over_18": True},
+        sd_claims=["country", "over_18"],
+        issuer_priv=issuer_priv, issuer_kid="bank-1",
+        holder_pub=holder_pub,
+    )
+    if tamper_country:
+        # Swap country disclosure for one with a different value.
+        evil, _ = make_disclosure("country", "ZZ")
+        disclosures = dict(disclosures, country=evil)
+    pres_no_kb = build_presentation(
+        sdjwt_token=token, disclosures=disclosures, reveal=reveal
+    )
+    if attacker_kb:
+        bad_priv, _ = generate_p256_keypair()
+        kb = make_kb_jwt(
+            presentation_no_kb=pres_no_kb, aud=aud, nonce=nonce,
+            holder_priv=bad_priv, holder_kid="bad-1", now=1700000000,
+        )
+    else:
+        kb = make_kb_jwt(
+            presentation_no_kb=pres_no_kb, aud=aud, nonce=nonce,
+            holder_priv=holder_priv, holder_kid="alice-1", now=1700000000,
+        )
+    return attach_kb(pres_no_kb, kb), issuer_pub, pres_no_kb
+
+
+def test_verify_returns_only_revealed_claims():
+    pres, issuer_pub, _ = _issue_and_present(reveal=["country", "over_18"])
+    out = verify(
+        presentation=pres, issuer_pub=issuer_pub,
+        expected_aud="merchant.example", expected_nonce="txn-001",
+    )
+    assert out is not None
+    assert out["country"] == "CA"
+    assert out["over_18"] is True
+    assert out["iss"] == "Bank" and out["sub"] == "alice"
+    assert "_sd" not in out and "cnf" not in out
+
+
+def test_verify_rejects_tampered_disclosure():
+    pres, issuer_pub, _ = _issue_and_present(reveal=["country"], tamper_country=True)
+    assert verify(
+        presentation=pres, issuer_pub=issuer_pub,
+        expected_aud="merchant.example", expected_nonce="txn-001",
+    ) is None
+
+
+def test_verify_rejects_wrong_holder_key_on_kb():
+    pres, issuer_pub, _ = _issue_and_present(reveal=["country"], attacker_kb=True)
+    assert verify(
+        presentation=pres, issuer_pub=issuer_pub,
+        expected_aud="merchant.example", expected_nonce="txn-001",
+    ) is None
+
+
+def test_verify_rejects_missing_kb_when_aud_required():
+    # Build a presentation with no KB.
+    issuer_priv, issuer_pub = generate_p256_keypair()
+    _, holder_pub = generate_p256_keypair()
+    token, disclosures = make_sdjwt(
+        payload={"iss": "Bank", "sub": "alice", "country": "CA"},
+        sd_claims=["country"],
+        issuer_priv=issuer_priv, issuer_kid="bank-1",
+        holder_pub=holder_pub,
+    )
+    pres = build_presentation(
+        sdjwt_token=token, disclosures=disclosures, reveal=["country"]
+    )
+    assert verify(
+        presentation=pres, issuer_pub=issuer_pub,
+        expected_aud="merchant.example",
+    ) is None
+
+
+def test_verify_rejects_mismatched_aud():
+    pres, issuer_pub, _ = _issue_and_present(reveal=["country"])
+    assert verify(
+        presentation=pres, issuer_pub=issuer_pub,
+        expected_aud="wrong.example", expected_nonce="txn-001",
+    ) is None

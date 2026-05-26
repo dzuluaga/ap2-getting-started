@@ -125,3 +125,87 @@ def make_kb_jwt(
 def attach_kb(presentation_no_kb: str, kb_jwt: str) -> str:
     """Append a KB-JWT to a presentation, with the trailing ``~``."""
     return presentation_no_kb + kb_jwt + "~"
+
+
+def verify(
+    *,
+    presentation: str,
+    issuer_pub,
+    expected_aud: str | None = None,
+    expected_nonce: str | None = None,
+) -> dict | None:
+    """Verify an SD-JWT presentation (issuer sig + KB binding + selective
+    disclosure). Returns the merged-and-revealed claims, or ``None`` on any
+    failure. KB-JWT is always verified if present; ``aud``/``nonce`` are only
+    checked when ``expected_*`` is provided.
+    """
+    parts = presentation.split("~")
+    # Wire format always ends with "~" → parts has a trailing "".
+    if not parts or parts[-1] != "":
+        return None
+    parts = parts[:-1]
+    if not parts:
+        return None
+    sdjwt_token, *rest = parts
+    # KB present iff the LAST segment is a JWT (3 dot-separated parts).
+    kb_jwt: str | None = None
+    if rest and rest[-1].count(".") == 2:
+        kb_jwt = rest[-1]
+        disclosure_strs = rest[:-1]
+    else:
+        disclosure_strs = rest
+
+    # 1) Issuer signature.
+    clear = verify_jwt(sdjwt_token, issuer_pub)
+    if clear is None:
+        return None
+    sd_array = clear.get("_sd", [])
+    if not isinstance(sd_array, list):
+        return None
+
+    # 2) KB-JWT (if present, ALWAYS verify; otherwise enforce expected_*).
+    if kb_jwt is not None:
+        cnf = (clear.get("cnf") or {}).get("jwk")
+        if not isinstance(cnf, dict):
+            return None
+        try:
+            x = int.from_bytes(b64url_decode(cnf["x"]), "big")
+            y = int.from_bytes(b64url_decode(cnf["y"]), "big")
+            holder_pub = ec.EllipticCurvePublicNumbers(
+                x, y, ec.SECP256R1()
+            ).public_key()
+        except (KeyError, ValueError):
+            return None
+        kb_payload = verify_jwt(kb_jwt, holder_pub)
+        if kb_payload is None:
+            return None
+        presentation_no_kb = (
+            sdjwt_token + "".join("~" + d for d in disclosure_strs) + "~"
+        )
+        if kb_payload.get("sd_hash") != sha256_b64url(
+            presentation_no_kb.encode("ascii")
+        ):
+            return None
+        if expected_aud is not None and kb_payload.get("aud") != expected_aud:
+            return None
+        if expected_nonce is not None and kb_payload.get("nonce") != expected_nonce:
+            return None
+    elif expected_aud is not None or expected_nonce is not None:
+        return None  # KB required by caller but missing.
+
+    # 3) Reconstruct revealed claims by matching disclosure hashes to _sd.
+    revealed: dict[str, Any] = {}
+    for disc in disclosure_strs:
+        h = sha256_b64url(disc.encode("ascii"))
+        if h not in sd_array:
+            return None
+        try:
+            _salt, name, value = json.loads(b64url_decode(disc))
+        except (ValueError, TypeError):
+            return None
+        revealed[name] = value
+
+    # 4) Merge: non-_sd / non-cnf clear claims + revealed disclosures.
+    out = {k: v for k, v in clear.items() if k not in ("_sd", "cnf")}
+    out.update(revealed)
+    return out
